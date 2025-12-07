@@ -236,7 +236,7 @@ elseif programMode:lower() == "convert" then
     if convertCount == nil then
         convertCount = 1
     else
-        convertCount = math.max(princessCount, tonumber(convertCount))
+        convertCount = math.min(princessCount, tonumber(convertCount))
     end
     if flags["swarm"] == true then
         convertCount = princessCount
