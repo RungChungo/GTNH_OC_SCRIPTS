@@ -715,8 +715,6 @@ function utility.dumpDrones(beeName, sideConfig)
         local bee = transposer.getStackInSlot(sideConfig.storage, i)
         if bee ~= nil then
             local species = utility.getItemName(bee)
-            print(species)
-            os.sleep(5)
             if species == beeName then
                 safeTransfer(sideConfig.storage, sideConfig.garbage, bee.size, i, "storage", "garbage")
             end
