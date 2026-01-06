@@ -492,7 +492,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
     end
 
     local basePrincessSlot, baseDroneSlot = utility.findPairString(beeName, beeName, sideConfig.storage)
-    if basePrincessSlot == nil or baseDroneSlot == nil then
+    if basePrincessSlot == -1 or baseDroneSlot == -1 then
         print("This species doesn't have both drones and a princess in your storage container! Aborting.")
         return false
     end
@@ -591,9 +591,6 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
                 end
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
                 safeTransfer(sideConfig.storage, sideConfig.breeder, 1, size, "storage", "breeder") -- Last slot in storage is reserved for template bees.
-                for i=1,scanCount do
-                    safeTransfer(sideConfig.output, sideConfig.garbage, 64, i, "output", "garbage")
-                end
             end
 
         elseif (princessPureness + bestDronePureness) == 0 then
@@ -614,7 +611,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
             else
                 print("Couldn't find reserve drone! Substituting base drone")
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
-                if (safeTransfer(sideConfig.storage, sideConfig.breeder, 1, baseDroneSlot, "storage", "breeder") == 0) then
+                if (safeTransfer(sideConfig.storage, sideConfig.breeder, 1, baseDroneSlot, "storage", "breeder") <= 1) then
                     print("OUT OF BASE DRONES! TERMINATING.")
                     os.exit()
                 end
@@ -729,7 +726,8 @@ function continueImprinting(sideConfig, princessSlot, droneSlot)
 end
 
 function dumpOutput(sideConfig)
-    for i=1,scanCount do
+    local size = transposer.getInventorySize(sideConfig.output)
+    for i=1,size do
         if transposer.getStackInSlot(sideConfig.output,i)~=nil then
             safeTransfer(sideConfig.output, sideConfig.garbage, 64, i, "output", "garbage")
         end
