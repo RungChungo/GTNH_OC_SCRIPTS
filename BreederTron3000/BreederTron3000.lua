@@ -94,7 +94,7 @@ if programMode:lower() == "breed" or programMode:lower() == "imprint" then
         end
     end
 end
-
+beeCount = util.listBeesInStorage(sideConfig.storage)
 if programMode:lower() == "breed" then
     --AutoBee compliant
     local storageSize = transposer.getInventorySize(sideConfig.storage)

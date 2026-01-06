@@ -220,6 +220,10 @@ function utility.populateBee(beeName, sideConfig, targetCount)
     local princess = transposer.getStackInSlot(sideConfig.storage, princessSlot)
     local genes = princess.individual.active
     local drones = transposer.getStackInSlot(sideConfig.storage,droneSlot)
+    if genes.fertility == 1 then
+        print("This bee has 1 fertility! I can't populate this! Aborting.")
+        return
+    end
     if(drones.size<2)then
         print("Needs at least 2 drones for AutoBee Reasons")
         safeTransfer(sideConfig.storage, sideConfig.breeder, 1, princessSlot, "storage", "breeder")
@@ -230,8 +234,9 @@ function utility.populateBee(beeName, sideConfig, targetCount)
         utility.populateBee(beeName,sideConfig,targetCount)
         return
     end
-    if genes.fertility == 1 then
-        print("This bee has 1 fertility! I can't populate this! Aborting.")
+
+    if not utility.isGeneticallyEquivalent(princess,drones,genes) then
+        print("Princess and Drones are not identical populate can't work")
         return
     end
 
