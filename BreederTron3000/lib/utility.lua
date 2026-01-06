@@ -93,23 +93,14 @@ function utility.resolveConflict(beeName, parentPairs, child)
     return parentPairs[choice]
 end
 
-function utility.listBeesInStorage(sideConfig)
-    local size = transposer.getInventorySize(sideConfig.storage)
+function utility.listBeesInStorage(side)
+    --TODO:Update to AutoBee
+    local size = transposer.getInventorySize(side)
     local bees = {}
 
     for i=1,size do
-        local bee = transposer.getStackInSlot(sideConfig.storage, i)
+        local bee = transposer.getStackInSlot(side, i)
         if bee ~= nil then
-            if bee.individual ~= nil and bee.individual.active == nil then
-                print(string.format("Bee in slot %d is unscanned! Sending to scanner.", i))
-                safeTransfer(sideConfig.storage, sideConfig.scanner, 64, i, "storage", "scanner")
-                while (transposer.getStackInSlot(sideConfig.output, 1) == nil) do
-                    os.sleep(1)
-                end
-                bee = transposer.getStackInSlot(sideConfig.output, 1)
-                print("Sending back to storage.")
-                safeTransfer(sideConfig.output, sideConfig.storage, 64, 1, "output", "storage")
-            end
             local species,type = utility.getItemName(bee)
 
 
@@ -127,11 +118,12 @@ end
 
 --Converts a princess to the given bee type
 --Assumes bee is scanned (Only scanned bees expose genes)
-function utility.convertPrincess(beeName, sideConfig, droneReq)
+function utility.convertPrincess(beeName, sideConfig, princess, droneReq)
+    --TODO: update to AutoBee
+    --Assumes: Princess in Breeder and will error if not
     print("Converting princess to " .. beeName)
     local droneSlot = nil
     local targetGenes = nil
-    local princess = transposer.getStackInSlot(sideConfig.breeder, 1)
     local princessSlot = nil
     local princessName = nil
     if princess ~= nil then
@@ -174,56 +166,42 @@ function utility.convertPrincess(beeName, sideConfig, droneReq)
     end
     --Insert bees into the apiary
     print("Converting " .. princessName .. " princess to " .. beeName)
-    --First number is the amount of items transferred, the second is the slot number of the container items are transferred to
+    --First number is the amount of items transferred, the second is the slot number of the container items are transferred from
     --Move only 1 drone at a time to leave the apiary empty after the cycling is complete (you can't extract from input slots)
     safeTransfer(sideConfig.storage,sideConfig.breeder, 1, droneSlot, "storage", "breeder")
     if princessSlot ~= nil then
         safeTransfer(sideConfig.storage,sideConfig.breeder, 1, princessSlot, "storage", "breeder")
     end
-
+    
     local princessConverted = false
+    local size=transposer.getInventorySize(sideConfig.output)
     while(not princessConverted) do
-        --Cycle finished if slot 1 is empty
-        if transposer.getStackInSlot(sideConfig.breeder, 1) == nil then
-            for i=3,9 do
-                local item = transposer.getStackInSlot(sideConfig.breeder,i)
+        while not cycleIsDone(sideConfig) do
+            sleep(1)
+        end
+        for i=1,size do
+            local item = transposer.getStackInSlot(sideConfig.output,i)
+            if item ~= nil then
+                local species,type = utility.getItemName(item)
+                if type == "Princess" and species == beeName then
+                    princessConverted = utility.checkPrincess(sideConfig)
+                end
+            end
+        end
+        if(not princessConverted) then
+            for i=1,size do
+                local item = transposer.getStackInSlot(sideConfig.output,i)
                 if item ~= nil then
                     local species,type = utility.getItemName(item)
-                    if type == "Drone" and item.size == targetGenes.active.fertility and species == beeName then
-                        print("Scanning princess...")
-                        princessConverted = utility.checkPrincess(sideConfig) --This call will move the princess to sideConfig.output
-                        if (not princessConverted) then
-                            print("Princess is not a perfect copy! Continuing.")
-                            safeTransfer(sideConfig.output,sideConfig.breeder, 1, 1, "output", "breeder") --Move princess back to input
-                            safeTransfer(sideConfig.storage, sideConfig.breeder, 1, droneSlot, "storage", "breeder") --Move drone from storage to breed slot
-                        end
-                    end
-                end
-            end
-            if(not princessConverted) then
-                for i=3,9 do
-                    local item = transposer.getStackInSlot(sideConfig.breeder,i)
-                    if item ~= nil then
-                        local species,type = utility.getItemName(item)
-                        if type == "Princess" then
-                            safeTransfer(sideConfig.breeder, sideConfig.breeder, 1, i, "breeder", "breeder") --Move princess back to input slot
-                            safeTransfer(sideConfig.storage, sideConfig.breeder, 1, droneSlot, "storage", "breeder") --Move drone from storage to breed slot
-                        else
-                            safeTransfer(sideConfig.breeder, sideConfig.garbage, item.size, i, "breeder", "garbage")
-                        end
+                    if type == "Princess" then
+                        safeTransfer(sideConfig.output, sideConfig.breeder, 1, i, "output", "breeder") --Move princess back to input slot
+                        safeTransfer(sideConfig.storage, sideConfig.breeder, 1, droneSlot, "storage", "breeder") --Move drone from storage to breed slot
                     end
                 end
             end
         end
-        os.sleep(1)
     end
     print("Conversion complete!")
-    for i=3,9 do --clean up the drones
-        local item = transposer.getStackInSlot(sideConfig.breeder, i)
-        if item ~= nil then
-            safeTransfer(sideConfig.breeder, sideConfig.garbage, item.size, i, "breeder", "garbage")
-        end
-    end
     safeTransfer(sideConfig.output,sideConfig.storage, 1, 1, "output", "storage")
     print(beeName .. " princess moved to storage.")
 end
@@ -231,7 +209,8 @@ end
 function utility.populateBee(beeName, sideConfig, targetCount)
     local droneOutput = nil
     print("Populating " .. beeName .. " bee.")
-    local princessSlot, droneSlot = utility.findPairString(beeName, beeName, sideConfig)
+    --TODO: Update to Autoscan, Loop should wait to check Storage, Requires a drone alredy in storage
+    local princessSlot, droneSlot = utility.findPairString(beeName, beeName, sideConfig.storage)
     if(princessSlot == -1 or droneSlot == -1) then
         print("Couldn't find princess or drone! Aborting.")
         return
@@ -306,8 +285,9 @@ end
 
 
 function utility.breed(beeName, breedData, sideConfig, robotMode)
+    --TODO:First Check for AutoBee
     print("Breeding " .. beeName .. " bee.")
-    local basePrincessSlot, baseDroneSlot = utility.findPair(breedData, sideConfig)
+    local basePrincessSlot, baseDroneSlot = utility.findPair(breedData, sideConfig.storage)
     if basePrincessSlot == -1 or baseDroneSlot == -1 then
         print("Couldn't find the parents of " .. beeName .. " bee! Aborting.")
         return
@@ -316,6 +296,7 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
     local basePrincessSpecies,_ = utility.getItemName(basePrincess)
     local chance = breedData.chance
 
+    --TODO: BeeChute upgrade may not allow direct mutation chance reading
     local breederSize = transposer.getInventorySize(sideConfig.breeder)
     if(breederSize == 12) then --Apiary exclusive.
         for i=10,12 do
@@ -336,6 +317,9 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
         print("Actual chance unknown (using alveary). MIGHT PRODUCE OTHER MUTATIONS!")
     end
     local requirements = breedData.specialConditions
+
+    --BeeChute with Block upgrade will address this
+
     local botPlaced = false
     if next(requirements) ~= nil then
         print("This bee has the following special requirements: ")
@@ -366,7 +350,7 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
             end
             if ans == "skip" then
                 print("Updating the bee list...")
-                utility.listBeesInStorage(sideConfig)
+                utility.listBeesInStorage(sideConfig.storage)
                 goto skip
             end
         end
@@ -389,19 +373,7 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
 
     while(not isPure) or (not isGeneticallyPerfect) do
         while(not cycleIsDone(sideConfig)) do
-            os.sleep(1)
-        end
-        print("Scanning bees...")
-        scanCount = utility.dumpBreeder(sideConfig, true)
-        if scanCount == 0 then
-            print("HEY! YOU TOOK OUT THE BEE! PUT A PRINCESS + DRONE IN THE BREEDER!")
-            while(not cycleIsDone(sideConfig)) do
-                os.sleep(1)
-            end
-            print("Continuing...")
-            goto continue
-        end
-        while(transposer.getStackInSlot(sideConfig.output, scanCount) == nil) do
+            --Checks output for princess
             os.sleep(1)
         end
 
@@ -412,30 +384,32 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
         bestDrone = nil
         bestDronePureness = -1
         bestDroneSlot = nil
-        for i=1,scanCount do
-            local item = transposer.getStackInSlot(sideConfig.output, i) --Previous loop ensures the slots aren't empty
-            local _,type = utility.getItemName(item)
-            if type == "Princess" then
-                princessSlot = i
-                princess = item
-                if item.individual.active.species.name == beeName then
-                    princessPureness = princessPureness + 1
-                end
-                if item.individual.inactive.species.name == beeName then
-                    princessPureness = princessPureness + 1
-                end
-            else
-                local dronePureness = 0
-                if item.individual.active.species.name == beeName then
-                    dronePureness = dronePureness + 1
-                end
-                if item.individual.inactive.species.name == beeName then
-                    dronePureness = dronePureness + 1
-                end
-                if dronePureness > bestDronePureness then
-                    bestDronePureness = dronePureness
-                    bestDroneSlot = i
-                    bestDrone = item
+        for i=1,transposer.getInventorySize(sideConfig.output) do
+            local item = transposer.getStackInSlot(sideConfig.output, i) 
+            if item~=nil then -- No longer can know number of bees to check but they all must be bees
+                local _,type = utility.getItemName(item)
+                if type == "Princess" then
+                    princessSlot = i
+                    princess = item
+                    if item.individual.active.species.name == beeName then
+                        princessPureness = princessPureness + 1
+                    end
+                    if item.individual.inactive.species.name == beeName then
+                        princessPureness = princessPureness + 1
+                    end
+                else
+                    local dronePureness = 0
+                    if item.individual.active.species.name == beeName then
+                        dronePureness = dronePureness + 1
+                    end
+                    if item.individual.inactive.species.name == beeName then
+                        dronePureness = dronePureness + 1
+                    end
+                    if dronePureness > bestDronePureness then
+                        bestDronePureness = dronePureness
+                        bestDroneSlot = i
+                        bestDrone = item
+                    end
                 end
             end
         end
@@ -462,14 +436,11 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
             print("Breeding " .. princessSpecies .. " princess with " .. droneSpecies .. " drone.")
             safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder") --Send princess to breeding slot
             safeTransfer(sideConfig.output, sideConfig.breeder, 1, bestDroneSlot, "output", "breeder") --Send drone to breeding slot
-            for i=1,scanCount do --Move the other drones to the garbage container
-                safeTransfer(sideConfig.output, sideConfig.garbage, 64, i, "output", "garbage")
-            end
         else
             print("TARGET SPECIES LOST!")
             print("Looking for reserve drone...")
             bestReserveDrone = nil
-            bestReserveScore, bestReserveSlot = getBestBreedReserve(beeName, sideConfig)
+            bestReserveScore, bestReserveSlot = getBestBreedReserve(beeName, sideConfig.garbage)
             if bestReserveSlot ~= nil then
                 bestReserveDrone = transposer.getStackInSlot(sideConfig.garbage, bestReserveSlot)
             end
@@ -479,12 +450,10 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
                 dumpOutput(sideConfig, scanCount)
             else
+                --TODO replace convert with Mutation aware score
                 print("Couldn't find a good reserve drone! converting back to base species.")
                 safeTransfer(sideConfig.output,sideConfig.breeder, 1, princessSlot, "output", "breeder") -- Move to breeder for conversion
-                for i=1,scanCount do --Get rid of the useless bees
-                    safeTransfer(sideConfig.output, sideConfig.garbage, 64, i, "output", "garbage")
-                end
-                utility.convertPrincess(basePrincessSpecies, sideConfig)
+                utility.convertPrincess(basePrincessSpecies, sideConfig, princess)
                 local otherDroneSlot = utility.findBeeWithType(basePrincessSpecies, "Drone", sideConfig) --other drone species is the same as the base princess species
                 local otherDrone = transposer.getStackInSlot(sideConfig.storage, otherDroneSlot)
                 if otherDrone.size < 32 then
@@ -496,8 +465,9 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
         end
         ::continue::
     end
-    for i=1,scanCount do
-        if i ~= bestDroneSlot and i ~= princessSlot then
+    --TODO:Replace with smart trashing function for BeeChute
+    for i=1,transposer.getInventorySize(sideConfig.output) do
+        if transposer.getStackInSlot(sideConfig.storage, i)~= nil and i ~= bestDroneSlot and i ~= princessSlot then
             safeTransfer(sideConfig.output,sideConfig.garbage, 64, i, "output", "garbage") --Move irrelevant drones to garbage
         end
     end
@@ -506,11 +476,12 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
 end
 
 function utility.ensureGeneticEquivalence(princessSlot, droneSlot, sideConfig)
+    --AutoBee Compliant: Single use method, only used for homozygous transfer in breed()
     local princess = transposer.getStackInSlot(sideConfig.output,princessSlot)
     local drone = transposer.getStackInSlot(sideConfig.output,droneSlot)
     local targetGenes = princess.individual.active
     local isEquivalent = utility.isGeneticallyEquivalent(princess, drone, princess.individual.active, false)
-    if isEquivalent then
+    if isEquivalent and drone.size>1 then --Ensurse Populate can happen under AutoBee in breed
         print("Target bee is genetically consistent!")
         safeTransfer(sideConfig.output, sideConfig.storage, 1, princessSlot, "output", "storage")
         safeTransfer(sideConfig.output, sideConfig.storage, 64, droneSlot, "output", "storage")
@@ -520,8 +491,11 @@ function utility.ensureGeneticEquivalence(princessSlot, droneSlot, sideConfig)
 end
 
 function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
+    --TODO:Update to AutoBee
     print("Imprinting template genes onto " .. beeName .. " bee.")
     local size = transposer.getInventorySize(sideConfig.storage)
+
+    --Imprint State check is checking, {Template existent, Target exists, Work Needs done}
 
     local templateDrone = transposer.getStackInSlot(sideConfig.storage, size)
     if templateDrone == nil then
@@ -529,7 +503,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
         return false
     end
 
-    local basePrincessSlot, baseDroneSlot = utility.findPairString(beeName, beeName, sideConfig)
+    local basePrincessSlot, baseDroneSlot = utility.findPairString(beeName, beeName, sideConfig.storage)
     if basePrincessSlot == nil or baseDroneSlot == nil then
         print("This species doesn't have both drones and a princess in your storage container! Aborting.")
         return false
@@ -645,7 +619,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
             local bestReserveDrone = nil
             local bestReserveScore = -1
             local bestReserveSlot = nil
-            bestReserveScore, bestReserveSlot = getBestReserve(beeName, sideConfig, templateGenes, config.geneWeights)
+            bestReserveScore, bestReserveSlot = getBestReserve(beeName, sideConfig.garbage, templateGenes, config.geneWeights)
             if bestReserveSlot ~= nil then
                 bestReserveDrone = transposer.getStackInSlot(sideConfig.garbage, bestReserveSlot)
             end
@@ -674,13 +648,14 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
     return true
 end
 
-function getBestReserve(beeName, sideConfig, targetGenes)
-    local reserveSize = transposer.getInventorySize(sideConfig.garbage)
+function getBestReserve(beeName, side, targetGenes)
+    --AutoBee Compliant, Allows reading any inventory, code refactored
+    local reserveSize = transposer.getInventorySize(side)
     local bestReserveScore = -1
     local bestReserveSlot = nil
     local nilCounter = 0
     for i=1,reserveSize do
-        local bee = transposer.getStackInSlot(sideConfig.garbage, i)
+        local bee = transposer.getStackInSlot(side, i)
         if bee == nil then
             nilCounter = nilCounter + 1
             if nilCounter > 10 then
@@ -705,21 +680,22 @@ function getBestReserve(beeName, sideConfig, targetGenes)
         end
         ::continue::
     end
-    if bestReserveSlot ~= nil and transposer.getStackInSlot(sideConfig.garbage, bestReserveSlot) == nil then
+    if bestReserveSlot ~= nil and transposer.getStackInSlot(side, bestReserveSlot) == nil then
         print("BEST RESERVE DRONE DISAPPEARED! TRYING AGAIN...")
-        return getBestReserve(beeName, sideConfig, targetGenes, config.geneWeights)
+        return getBestReserve(beeName, side, targetGenes)
     end
     return table.unpack({bestReserveScore, bestReserveSlot})
 end
 
-function getBestBreedReserve(beeName, sideConfig)
+function getBestBreedReserve(beeName, side)
+    --AutoBee Compliant, Checks for species only
     local bestReserveScore = 0
     local bestReserveSlot = nil
     local nilCounter = 0
-    local reserveSize = transposer.getInventorySize(sideConfig.garbage)
+    local reserveSize = transposer.getInventorySize(side)
 
     for i=1,reserveSize do
-        local bee = transposer.getStackInSlot(sideConfig.garbage, i)
+        local bee = transposer.getStackInSlot(side, i)
         if bee == nil then
             nilCounter = nilCounter + 1
             if nilCounter > 10 then
@@ -745,9 +721,9 @@ function getBestBreedReserve(beeName, sideConfig)
         end
         ::continue::
     end
-    if bestReserveSlot ~= nil and transposer.getStackInSlot(sideConfig.garbage, bestReserveSlot) == nil then
+    if bestReserveSlot ~= nil and transposer.getStackInSlot(side, bestReserveSlot) == nil then
         print("BEST RESERVE DRONE DISAPPEARED! TRYING AGAIN...")
-        return getBestReserve(beeName, sideConfig, targetGenes, config.geneWeights)
+        return getBestReserve(beeName, side )
     end
     return table.unpack({bestReserveScore, bestReserveSlot})
 end
@@ -914,15 +890,16 @@ function utility.findBeeWithType(targetName, targetType, sideConfig)
 end
 
 --Takes the table from getBeeParents() 
-function utility.findPair(pair, sideConfig)
-    local size = transposer.getInventorySize(sideConfig.storage)
+function utility.findPair(pair, side)
+    --TODO:Update to AutoBee, May be fine since only used to find from storage at open of breed
+    local size = transposer.getInventorySize(side)
     local princess1 = nil
     local princess2 = nil
     local drone1 = nil
     local drone2 = nil
 
     for i=1,size do
-        local item = transposer.getStackInSlot(sideConfig.storage,i)
+        local item = transposer.getStackInSlot(side,i)
         if item ~= nil then
             local species, type = utility.getItemName(item)
             if type == "Drone" then
@@ -952,15 +929,17 @@ function utility.findPair(pair, sideConfig)
     return table.unpack({-1,-1})
 end
 
-function utility.findPairString(bee1, bee2, sideConfig)
-    local size = transposer.getInventorySize(sideConfig.storage)
+function utility.findPairString(bee1, bee2, side)
+    --Partial AutoBee Compliance
+    --TODO: Only finds pair within one inventory 
+    local size = transposer.getInventorySize(side)
     local princess1 = nil
     local princess2 = nil
     local drone1 = nil
     local drone2 = nil
 
     for i=1,size do
-        local item = transposer.getStackInSlot(sideConfig.storage,i)
+        local item = transposer.getStackInSlot(side,i)
         if item ~= nil then
             local species, type = utility.getItemName(item)
             if type == "Drone" then
@@ -1010,16 +989,13 @@ function utility.getItemName(bee)
 end
 
 function utility.checkPrincess(sideConfig)
-    for i=3,9 do
-        local item = transposer.getStackInSlot(sideConfig.breeder,i)
+    --Partial AutoBee Compliance: Will need changed for BeeChute
+    for i=1,transposer.getInventorySize(sideConfig.output) do
+        local item = transposer.getStackInSlot(sideConfig.output,i)
         if item ~= nil then
             local species,type = utility.getItemName(item)
             if type == "Princess" then
-                safeTransfer(sideConfig.breeder,sideConfig.scanner, 1, i, "breeder", "scanner")
-                while transposer.getStackInSlot(sideConfig.output, 1) == nil do
-                    os.sleep(1)
-                end
-                local princess = transposer.getStackInSlot(sideConfig.output, 1)
+                local princess = transposer.getStackInSlot(sideConfig.output, i)
                 return utility.areGenesEqual(princess.individual)
             end
         end
@@ -1028,6 +1004,7 @@ function utility.checkPrincess(sideConfig)
 end
 
 function utility.areGenesEqual(geneTable)
+    --Checks for Homozygous bees
     for gene,value in pairs(geneTable.active) do
         if type(value) == "table" then
             for name,tValue in pairs(value) do
@@ -1118,8 +1095,9 @@ function indexInTable(tbl, target)
 end
 
 function cycleIsDone(sideConfig)
-    for i=3,9 do
-        local item = transposer.getStackInSlot(sideConfig.breeder, i)
+    --TODO:Update all refrences
+    for i=1,transposer.getInventorySize(sideConfig.output) do
+        local item = transposer.getStackInSlot(sideConfig.output, i)
         if item ~= nil then
             local _,type = utility.getItemName(item)
             if type == "Princess" then

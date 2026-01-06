@@ -49,6 +49,7 @@ end
 
 
 for i=0,5 do
+    --TODO:Update to AutoBee:Notes update needed post bee chute upgrade
     local size = transposer.getInventorySize(i)
     if size == 9 or size == 12 then
         sideConfig.breeder = i
@@ -61,8 +62,9 @@ if flags["noFinalImprint"] == true then
     print("------------------------------")
 end
 
+
 print("Checking storage for existing bees...")
-local beeCount = util.listBeesInStorage(sideConfig)
+local beeCount = util.listBeesInStorage(sideConfig.storage)
 print("Done!")
 if beeCount == nil then
     print("THERE ARE NO BEES! TERMINATING PROGRAM!")
@@ -95,6 +97,7 @@ if programMode:lower() == "breed" or programMode:lower() == "imprint" then
 end
 
 if programMode:lower() == "breed" then
+    --AutoBee compliant
     local storageSize = transposer.getInventorySize(sideConfig.storage)
     local hasTemplates = transposer.getStackInSlot(sideConfig.storage, storageSize) ~= nil
 
@@ -165,7 +168,7 @@ if programMode:lower() == "breed" then
                     breedingChain[beeName] = nil
                     bredBee = true
                     print("Updating bee list...")
-                    beeCount = util.listBeesInStorage(sideConfig)
+                    beeCount = util.listBeesInStorage(sideConfig.storage)
                 end
             end
         end
@@ -175,6 +178,7 @@ if programMode:lower() == "breed" then
         end
     end
 elseif programMode:lower() == "imprint" then
+    --AutoBee Notes: Only pulling templates and Princesses from storage chest is expected 
     local size = transposer.getInventorySize(sideConfig.storage)
     local templateDrone = transposer.getStackInSlot(sideConfig.storage, size)
     if templateDrone == nil then
@@ -249,7 +253,7 @@ elseif programMode:lower() == "convert" then
             print(string.format("You only have %d %s drones. Would you like to proceed anyway? (This could crash the program) Y/N", beeCount[targetBee].Drone, targetBee))
             local ans = io.read()
             if ans ~= nil and ans:upper() == "Y" then
-                util.convertPrincess(targetBee, sideConfig, 0)
+                util.convertPrincess(targetBee, sideConfig, nil , 0)
             end
         else
             util.convertPrincess(targetBee, sideConfig)
@@ -258,7 +262,7 @@ elseif programMode:lower() == "convert" then
             util.populateBee(targetBee, sideConfig, 16)
         end
         print("Updating bee count...")
-        beeCount = util.listBeesInStorage(sideConfig)
+        beeCount = util.listBeesInStorage(sideConfig.storage)
     end
 else
     printUsage()
