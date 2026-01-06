@@ -177,7 +177,7 @@ function utility.convertPrincess(beeName, sideConfig, princess, droneReq)
     local size=transposer.getInventorySize(sideConfig.output)
     while(not princessConverted) do
         while not cycleIsDone(sideConfig) do
-            sleep(1)
+            os.sleep(1)
         end
         for i=1,size do
             local item = transposer.getStackInSlot(sideConfig.output,i)
