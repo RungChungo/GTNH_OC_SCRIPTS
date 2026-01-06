@@ -8,7 +8,7 @@ local function exists(filename)
     return filesystem.exists(shell.getWorkingDirectory() .. "/" .. filename)
 end
 
-local repo = "https://raw.githubusercontent.com/FrostyFire1/GTNH_OC_Scripts/";
+local repo = "https://raw.githubusercontent.com/RungChungo/GTNH_OC_Scripts/";
 local branch = "master/BreederTron3000"
 
 for i = 1, #paths do
