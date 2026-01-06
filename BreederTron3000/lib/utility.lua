@@ -219,7 +219,7 @@ function utility.populateBee(beeName, sideConfig, targetCount)
     end
     local princess = transposer.getStackInSlot(sideConfig.storage, princessSlot)
     local genes = princess.individual.active
-    local drones = transposer.getStackInSlot(sideConfig.storage)
+    local drones = transposer.getStackInSlot(sideConfig.storage,droneSlot)
     if(drones.size<2)then
         print("Needs at least 2 drones for AutoBee Reasons")
         safeTransfer(sideConfig.storage, sideConfig.breeder, 1, princessSlot, "storage", "breeder")
