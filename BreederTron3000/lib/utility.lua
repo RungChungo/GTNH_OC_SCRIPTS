@@ -95,6 +95,7 @@ end
 
 function utility.listBeesInStorage(side)
     --TODO:Update to AutoBee
+    --Requires homozygous bees
     local size = transposer.getInventorySize(side)
     local bees = {}
 
@@ -715,7 +716,7 @@ function utility.dumpDrones(beeName, sideConfig)
         if bee ~= nil then
             local species = utility.getItemName(bee)
             if species == beeName then
-                safeTransfer(sideConfig.storage, sideConfig.garbage, 64, i, "storage", "garbage")
+                safeTransfer(sideConfig.storage, sideConfig.garbage, bee.size, i, "storage", "garbage")
             end
         end
     end
