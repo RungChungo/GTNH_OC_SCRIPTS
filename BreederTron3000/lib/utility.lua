@@ -726,7 +726,6 @@ end
 function continueImprinting(sideConfig, princessSlot, droneSlot)
     safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
     safeTransfer(sideConfig.output, sideConfig.breeder, 1, droneSlot, "output", "breeder")
-    dumpOutput(sideConfig)
 end
 
 function dumpOutput(sideConfig)
