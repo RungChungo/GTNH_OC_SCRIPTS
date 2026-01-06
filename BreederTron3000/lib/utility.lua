@@ -213,7 +213,7 @@ function utility.populateBee(beeName, sideConfig, targetCount)
     print("Populating " .. beeName .. " bee.")
     --AutoBee compliant
     local princessSlot, droneSlot = utility.findPairString(beeName, beeName, sideConfig.storage)
-    if(princessSlot == -1 or droneSlot == -1) then
+    if(princessSlot == -1 or droneSlot == -1 or princessSlot == nil or droneSlot == nil) then
         print("Couldn't find princess or drone! Aborting.")
         return
     end
