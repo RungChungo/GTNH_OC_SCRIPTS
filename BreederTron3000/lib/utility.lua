@@ -172,7 +172,6 @@ function utility.convertPrincess(beeName, sideConfig, princess, droneReq)
     if princessSlot ~= nil then
         safeTransfer(sideConfig.storage,sideConfig.breeder, 1, princessSlot, "storage", "breeder")
     end
-    
     local princessConverted = false
     local size=transposer.getInventorySize(sideConfig.output)
     while(not princessConverted) do
@@ -185,6 +184,7 @@ function utility.convertPrincess(beeName, sideConfig, princess, droneReq)
                 local species,type = utility.getItemName(item)
                 if type == "Princess" and species == beeName then
                     princessConverted = utility.checkPrincess(sideConfig)
+                    princessSlot=i
                 end
             end
         end
@@ -202,7 +202,7 @@ function utility.convertPrincess(beeName, sideConfig, princess, droneReq)
         end
     end
     print("Conversion complete!")
-    safeTransfer(sideConfig.output,sideConfig.storage, 1, 1, "output", "storage")
+    safeTransfer(sideConfig.output,sideConfig.storage, 1, princessSlot, "output", "storage")
     print(beeName .. " princess moved to storage.")
 end
 
@@ -607,7 +607,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
                 print("Found reserve drone with genetic score " .. bestReserveScore .. "/" .. config.targetSum)
                 safeTransfer(sideConfig.garbage, sideConfig.breeder, 1, bestReserveSlot, "garbage", "breeder")
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
-                dumpOutput(sideConfig, scanCount)
+                dumpOutput(sideConfig)
             else
                 print("Couldn't find reserve drone! Substituting base drone")
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
@@ -615,13 +615,13 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
                     print("OUT OF BASE DRONES! TERMINATING.")
                     os.exit()
                 end
-                dumpOutput(sideConfig, scanCount)
+                dumpOutput(sideConfig)
             end
         elseif (princessPureness + bestDronePureness) == 1 then
             print("BEE AT RISK OF LOSING ORIGINAL SPECIES!")
-            continueImprinting(sideConfig, princessSlot, bestDroneSlot, scanCount)
+            continueImprinting(sideConfig, princessSlot, bestDroneSlot)
         else
-            continueImprinting(sideConfig, princessSlot, bestDroneSlot, scanCount)
+            continueImprinting(sideConfig, princessSlot, bestDroneSlot)
         end
         ::continue::
     end
