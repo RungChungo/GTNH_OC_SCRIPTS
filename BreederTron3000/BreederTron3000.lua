@@ -64,7 +64,7 @@ end
 
 
 print("Checking storage for existing bees...")
-local beeCount = util.listBeesInStorage(sideConfig.storage)
+beeCount = util.listBeesInStorage(sideConfig.storage)
 print("Done!")
 if beeCount == nil then
     print("THERE ARE NO BEES! TERMINATING PROGRAM!")
@@ -83,7 +83,7 @@ if princessCount == 0 then
     os.exit()
 end
 print(string.format("Located %d princesses in the storage chest.", princessCount))
-
+print(beeCount)
 if programMode:lower() == "breed" or programMode:lower() == "imprint" then
     
     print("Populating underpopulated bee pairs...")
@@ -189,7 +189,7 @@ elseif programMode:lower() == "imprint" then
     if targetBee ~= nil then
         if beeCount[targetBee].Princess == nil then
             util.convertPrincess(targetBee, sideConfig)
-        else
+        else    
             if beeCount[targetBee].Drone < 8 then
                 util.populateBee(targetBee, sideConfig, 8)
             end
