@@ -217,7 +217,10 @@ function utility.populateBee(beeName, sideConfig, targetCount)
         print("Couldn't find princess or drone! Aborting.")
         return
     end
-    if(transposer.getStackInSlot(sideConfig.output,droneSlot).size<2)then
+    local princess = transposer.getStackInSlot(sideConfig.storage, princessSlot)
+    local genes = princess.individual.active
+    local drones = transposer.getStackInSlot(sideConfig.storage)
+    if(drones.size<2)then
         print("Needs at least 2 drones for AutoBee Reasons")
         safeTransfer(sideConfig.storage, sideConfig.breeder, 1, princessSlot, "storage", "breeder")
         safeTransfer(sideConfig.storage, sideConfig.breeder, 1, droneSlot, "storage", "breeder")
@@ -225,10 +228,8 @@ function utility.populateBee(beeName, sideConfig, targetCount)
             os.sleep(1)
         end
         utility.populateBee(beeName,sideConfig,targetCount)
+        return
     end
-    local princess = transposer.getStackInSlot(sideConfig.storage, princessSlot)
-    local genes = princess.individual.active
-    local drones = transposer.getStackInSlot(sideConfig.storage)
     if genes.fertility == 1 then
         print("This bee has 1 fertility! I can't populate this! Aborting.")
         return
