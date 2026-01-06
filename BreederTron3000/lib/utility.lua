@@ -207,20 +207,32 @@ function utility.convertPrincess(beeName, sideConfig, princess, droneReq)
 end
 
 function utility.populateBee(beeName, sideConfig, targetCount)
+    --Requires Pair of Drone>1 and Princess>0
     local droneOutput = nil
     print("Populating " .. beeName .. " bee.")
-    --TODO: Update to Autoscan, Loop should wait to check Storage, Requires a drone alredy in storage
+    --AutoBee compliant
     local princessSlot, droneSlot = utility.findPairString(beeName, beeName, sideConfig.storage)
     if(princessSlot == -1 or droneSlot == -1) then
         print("Couldn't find princess or drone! Aborting.")
         return
     end
+    if(transposer.getStackInSlot(sideConfig.output,droneSlot).size<2)then
+        print("Needs at least 2 drones for AutoBee Reasons")
+        return
+    end
     local princess = transposer.getStackInSlot(sideConfig.storage, princessSlot)
     local genes = princess.individual.active
+    local drones = transposer.getStackInSlot(sideConfig.storage)
     if genes.fertility == 1 then
         print("This bee has 1 fertility! I can't populate this! Aborting.")
         return
     end
+
+    if not utility.isGeneticallyEquivalent(princess,droneOutput,genes) then
+        print("Princess and Drone are not identical populate can't work")
+        return
+    end
+
     print(beeName .. " bees found!")
     --Because the drones in storage are scanned you can only insert 1. the rest will be taken from output of the following cycles
     safeTransfer(sideConfig.storage, sideConfig.breeder, 1, princessSlot, "storage", "breeder")
@@ -230,57 +242,33 @@ function utility.populateBee(beeName, sideConfig, targetCount)
         while(not cycleIsDone(sideConfig)) do
             os.sleep(1)
         end
-        if droneOutput == nil then
-            for i=3,9 do
-                local candidate = transposer.getStackInSlot(sideConfig.breeder,i)
+        item = transposer.getStackInSlot(sideConfig.storage, droneSlot)
+        print("Populating progress: " .. item.size .. "/" .. targetCount)
+        if (item.size < targetCount) then
+            safeTransfer(sideConfig.storage,sideConfig.breeder, 1, droneSlot, "storage", "breeder") --Move a single drone back to the breeding slot
+            for i=1,transposer.getInventorySize(sideConfig.output) do
+                local candidate = transposer.getStackInSlot(sideConfig.output,i)
                 if candidate ~= nil then
                     local _,type = utility.getItemName(candidate)
-                    if type == "Drone" then
-                        print("Drones located in slot: " .. i)
-                        if droneOutput ~= nil then
-                            print("HEY! YOU'RE NOT SUPPOSED TO MAKE MORE THAN 2 DRONE STACKS WHEN POPULATING! TERMINATING PROGRAM.")
-                            os.exit()
-                        end
-                        droneOutput = i
-                    end
-                end
-            end
-        else
-            item = transposer.getStackInSlot(sideConfig.breeder, droneOutput)
-            print("Populating progress: " .. item.size .. "/" .. targetCount)
-            if (item.size < targetCount) then
-                safeTransfer(sideConfig.breeder,sideConfig.breeder, 1, droneOutput, "breeder", "breeder") --Move a single drone back to the breeding slot
-                for i=3,9 do
-                    local candidate = transposer.getStackInSlot(sideConfig.breeder,i)
-                    if candidate ~= nil then
-                        local _,type = utility.getItemName(candidate)
-                        if type == "Princess" then
-                            safeTransfer(sideConfig.breeder,sideConfig.breeder,1, i, "breeder", "breeder") --Move princess back to breeding slot
-                        end
+                    if type == "Princess" then
+                        safeTransfer(sideConfig.output,sideConfig.breeder,1, i, "output", "breeder") --Move princess back to breeding slot
                     end
                 end
             end
         end
     end
-    print("Populating complete! Sending " .. beeName .. " bees to scanner.")
-    for i=3,9 do
-        local item = transposer.getStackInSlot(sideConfig.breeder,i)
+    print("Populating complete! Sending " .. beeName .. " bees to storage.")
+    for i=1,transposer.getInventorySize(sideConfig.output)do
+        local item = transposer.getStackInSlot(sideConfig.output,i)
         if item ~= nil then
             local _,type = utility.getItemName(item)
             if type ~= "Princess" and type ~= "Drone" then
-                safeTransfer(sideConfig.breeder,sideConfig.garbage,64,i, "breeder", "garbage")
-            else
-                safeTransfer(sideConfig.breeder,sideConfig.scanner,64,i, "breeder", "scanner")
+                safeTransfer(sideConfig.output,sideConfig.garbage,64,i, "output", "garbage")
+            elseif type=="Princess" then
+                safeTransfer(sideConfig.output,sideConfig.storage,64,i, "output", "scanner")
             end
         end
     end
-    while transposer.getStackInSlot(sideConfig.output, 2) == nil do
-        os.sleep(1)
-    end
-    safeTransfer(sideConfig.output,sideConfig.storage,64,1, "output", "storage")
-    safeTransfer(sideConfig.output,sideConfig.storage,64,2, "output", "storage")
-
-    print("Scanned! " .. beeName .. " bees sent to storage.")
 end
 
 
@@ -491,7 +479,7 @@ function utility.ensureGeneticEquivalence(princessSlot, droneSlot, sideConfig)
 end
 
 function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
-    --TODO:Update to AutoBee
+    --AutoBee First Pass
     print("Imprinting template genes onto " .. beeName .. " bee.")
     local size = transposer.getInventorySize(sideConfig.storage)
 
@@ -532,6 +520,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
     local bestDrone = nil
     local bestDroneScore = -1
     local bestDroneSlot = nil
+    local bestDroneSize = 0
     local scanCount = 0
 
     local bestReserveDrone = nil
@@ -539,6 +528,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
     local bestReserveSlot = nil
     while not isImprinted do
         local scanCount = 0
+        local size = transposer.getInventorySize(sideConfig.output)
         princessScore = 0
         princessPureness = 0
         princessSlot = nil
@@ -546,52 +536,45 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
         bestDronePureness = 0
         bestDroneSlot = nil
         scanCount = 0
+        
         while(not cycleIsDone(sideConfig)) do
             os.sleep(1)
         end
-        scanCount = utility.dumpBreeder(sideConfig, true)
-        if scanCount == 0 then
-            print("HEY! YOU TOOK OUT THE BEE! PUT A PRINCESS + DRONE IN THE BREEDER!")
-            while(not cycleIsDone(sideConfig)) do
-                os.sleep(1)
-            end
-            print("Continuing...")
-            goto continue
-        end
-        print("Scanning...")
-        while transposer.getStackInSlot(sideConfig.output, scanCount) == nil do --Wait for scan finish
-            os.sleep(1)
-        end
         print("Grading...")
-        for i=1,scanCount do
-            local bee = transposer.getStackInSlot(sideConfig.output, i) --scanCount guarantees there are bees in these slots
-            local _,type = utility.getItemName(bee)
-            if type == "Princess" then
-                princess = bee
-                princessScore = utility.getGeneticScore(bee, templateGenes, basePrincess.individual.active.species, config.geneWeights)
-                princessPureness = utility.getBeePureness(beeName, bee)
-                princessSlot = i
-            else
-                local droneScore = utility.getGeneticScore(bee, templateGenes, basePrincess.individual.active.species, config.geneWeights)
-                if droneScore > bestDroneScore then
-                    bestDrone = bee
-                    bestDroneScore = droneScore
-                    bestDronePureness = utility.getBeePureness(beeName, bee)
-                    bestDroneSlot = i
+        for i=1,size do
+            local bee = transposer.getStackInSlot(sideConfig.output, i) --scanCount doesn't exist so we check anyway BUT should be bee
+            if bee~=nil then
+                local _,type = utility.getItemName(bee)
+                if type == "Princess" then
+                    princess = bee
+                    princessScore = utility.getGeneticScore(bee, templateGenes, basePrincess.individual.active.species, config.geneWeights)
+                    princessPureness = utility.getBeePureness(beeName, bee)
+                    princessSlot = i
+                elseif type=="Drone" then
+                    local droneScore = utility.getGeneticScore(bee, templateGenes, basePrincess.individual.active.species, config.geneWeights)
+                    if droneScore > bestDroneScore then
+                        bestDrone = bee
+                        bestDroneScore = droneScore
+                        bestDronePureness = utility.getBeePureness(beeName, bee)
+                        bestDroneSlot = i
+                        bestDroneSize=bee.size
+                    end
+                else
+                    print("Non Bee in Output chest, fix your AutoBee")
                 end
             end
         end
 
         local geneticSum = princessScore + bestDroneScore
         print("Genetic score: " .. geneticSum .. "/" .. config.targetSum*2)
-        if (tostring(geneticSum) == tostring(config.targetSum*2)) then --Avoids floating point arithmetic errors
+        if (tostring(geneticSum) == tostring(config.targetSum*2)) and bestDroneSize>1 then --Avoids floating point arithmetic errors
             print("Genetic imprint succeeded!")
             print("Dumping original drones...")
             utility.dumpDrones(beeName, sideConfig)
             safeTransfer(sideConfig.output, sideConfig.storage, 1, princessSlot, "output", "storage")
             safeTransfer(sideConfig.output, sideConfig.storage, 64, bestDroneSlot, "output", "storage")
             print("Imprinted bee moved to storage.")
-            dumpOutput(sideConfig, scanCount)
+            dumpOutput(sideConfig)
             return true
         end
 
@@ -599,7 +582,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
             print("PRINCESS AND DRONE ARE PURELY ORIGINAL SPECIES!")
             if utility.hasTargetGenes(princess, bestDrone, templateGenes) then
                 print("Target gene pool reachable. Continuing.")
-                continueImprinting(sideConfig, princessSlot, bestDroneSlot, scanCount)
+                continueImprinting(sideConfig, princessSlot, bestDroneSlot)
             else
                 print("Target gene pool unreachable. substituting drone for template drone.")
                 while (transposer.getStackInSlot(sideConfig.storage, size) == nil) do
@@ -740,15 +723,17 @@ function utility.dumpDrones(beeName, sideConfig)
         end
     end
 end
-function continueImprinting(sideConfig, princessSlot, droneSlot, scanCount)
+function continueImprinting(sideConfig, princessSlot, droneSlot)
     safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder")
     safeTransfer(sideConfig.output, sideConfig.breeder, 1, droneSlot, "output", "breeder")
-    dumpOutput(sideConfig, scanCount)
+    dumpOutput(sideConfig)
 end
 
-function dumpOutput(sideConfig, scanCount)
+function dumpOutput(sideConfig)
     for i=1,scanCount do
-        safeTransfer(sideConfig.output, sideConfig.garbage, 64, i, "output", "garbage")
+        if transposer.getStackInSlot(sideConfig.output,i)~=nil then
+            safeTransfer(sideConfig.output, sideConfig.garbage, 64, i, "output", "garbage")
+        end
     end
 end
 function utility.hasTargetGenes(princess, drone, targetGenes)
