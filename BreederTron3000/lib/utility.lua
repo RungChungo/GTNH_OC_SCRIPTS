@@ -235,11 +235,6 @@ function utility.populateBee(beeName, sideConfig, targetCount)
         return
     end
 
-    if not utility.isGeneticallyEquivalent(princess,droneOutput,genes) then
-        print("Princess and Drone are not identical populate can't work")
-        return
-    end
-
     print(beeName .. " bees found!")
     --Because the drones in storage are scanned you can only insert 1. the rest will be taken from output of the following cycles
     safeTransfer(sideConfig.storage, sideConfig.breeder, 1, princessSlot, "storage", "breeder")
