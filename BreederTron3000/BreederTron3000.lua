@@ -83,7 +83,6 @@ if princessCount == 0 then
     os.exit()
 end
 print(string.format("Located %d princesses in the storage chest.", princessCount))
-print(beeCount)
 if programMode:lower() == "breed" or programMode:lower() == "imprint" then
     
     print("Populating underpopulated bee pairs...")

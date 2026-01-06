@@ -7,4 +7,4 @@ local event = require("event")
 
 
 local sideConfig = util.getOrCreateConfig()
-util.dumpDrones("Iron",sideConfig)
+util.dumpOutput(sideConfig)

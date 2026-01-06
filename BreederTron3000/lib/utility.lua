@@ -219,7 +219,12 @@ function utility.populateBee(beeName, sideConfig, targetCount)
     end
     if(transposer.getStackInSlot(sideConfig.output,droneSlot).size<2)then
         print("Needs at least 2 drones for AutoBee Reasons")
-        return
+        safeTransfer(sideConfig.storage, sideConfig.breeder, 1, princessSlot, "storage", "breeder")
+        safeTransfer(sideConfig.storage, sideConfig.breeder, 1, droneSlot, "storage", "breeder")
+        while(not cycleIsDone(sideConfig)) do
+            os.sleep(1)
+        end
+        utility.populateBee(beeName,sideConfig,targetCount)
     end
     local princess = transposer.getStackInSlot(sideConfig.storage, princessSlot)
     local genes = princess.individual.active
@@ -411,7 +416,7 @@ function utility.breed(beeName, breedData, sideConfig, robotMode)
                 print("Target bee is not genetically consistent! continuing")
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, princessSlot, "output", "breeder") --Send princess to breeding slot
                 safeTransfer(sideConfig.output, sideConfig.breeder, 1, bestDroneSlot, "output", "breeder") --Send drone to breeding slot
-                dumpOutput(sideConfig, scanCount)
+                dumpOutput(sideConfig)
             end
         elseif (princessPureness + bestDronePureness) > 0 then
             if (not messageSent) then
@@ -600,7 +605,7 @@ function utility.imprintFromTemplate(beeName, sideConfig, templateGenes)
             local bestReserveDrone = nil
             local bestReserveScore = -1
             local bestReserveSlot = nil
-            bestReserveScore, bestReserveSlot = getBestReserve(beeName, sideConfig.garbage, templateGenes, config.geneWeights)
+            bestReserveScore, bestReserveSlot = getBestReserve(beeName, sideConfig.garbage, templateGenes)
             if bestReserveSlot ~= nil then
                 bestReserveDrone = transposer.getStackInSlot(sideConfig.garbage, bestReserveSlot)
             end
@@ -1060,7 +1065,6 @@ function utility.getOrCreateConfig()
 end
 
 function safeTransfer(sideIn, sideOut, amount, slot, sideInName, sideOutName)
-    print("Transfer")
     if (transposer.getStackInSlot(sideIn, slot) ~= nil and transposer.transferItem(sideIn, sideOut, amount, slot) == 0) then
         print(string.format("TRANSFER FROM SLOT %d OF CONTAINER: %s TO CONTAINER: %s FAILED! PLEASE DO IT MANUALLY OR CLEAN THE %s CONTAINER!", slot, sideInName:upper(), sideOutName:upper(), sideOutName:upper()))
         while(transposer.getStackInSlot(sideIn, slot) ~= nil) do
